@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>Memories</title>
+    <meta name="format-detection" content="telephone=no">
+    <meta name="msapplication-tap-highlight" content="no">
+    <meta name="viewport" content="user-scalable=no,initial-scale=1,minimum-scale=1,width=device-width,height=device-height,viewport-fit=cover">
+    <link href="vendors/spectre.min.css" media="all" rel="stylesheet" />
+    <link href="vendors/spectre-exp.min.css" media="all" rel="stylesheet" />
+    <link href="vendors/spectre-icons.min.css" media="all" rel="stylesheet" />
+    <link id="styles" href="styles.css?200413" media="all" rel="stylesheet" />
+    <script src="vendors/vue.min.js"></script>
+  </head>
+  <body class="initializing">
+    <div id="app">
+      <div class="hero hero-sm bg-dark">
+        <div class="hero-body">
+          <input v-if="isSearching" ref="search" v-model="query" type="text" placeholder="Query..." @blur="onBlur">
+          <h1 v-else class="mb-0" @click="enableSearch">
+            LASTNAME Firstname
+          </h1>
+        </div>
+      </div>
+
+      <div v-if="editor" class="editor">
+        <table>
+          <tbody>
+            <tr>
+              <th>Start date</th>
+              <td><input v-model="editor.start" type="date" placeholder="Start date"></td>
+            </tr>
+            <tr>
+              <th>End date</th>
+              <td>
+                <input v-model="editor.withEnd" type="checkbox">
+                <input v-show="editor.withEnd" v-model="editor.end" type="date" placeholder="End date">
+              </td>
+            </tr>
+            <tr>
+              <th>TODO</th>
+              <td>
+                <input v-model="editor.withTodo" type="checkbox">
+                <input v-show="editor.withTodo" v-model="editor.todo" type="text" placeholder="Details">
+              </td>
+            </tr>
+            <tr>
+              <th>Title</th>
+              <td>
+                <input v-model="editor.title" type="text" placeholder="Title">
+              </td>
+            </tr>
+            <tr>
+              <th>Identifier</th>
+              <td>
+                <input v-model="editor.identifier" type="text" placeholder="Identifier">
+              </td>
+            </tr>
+            <tr>
+              <th>Weight</th>
+              <td>
+                <label><input v-model="editor.weight" type="radio" name="weight" :value="1">1</label>
+                <label><input v-model="editor.weight" type="radio" name="weight" :value="2">2</label>
+                <label><input v-model="editor.weight" type="radio" name="weight" :value="3">3</label>
+              </td>
+            </tr>
+            <tr>
+              <th>With</th>
+              <td>
+                <div v-for="(value, $index) in editor.with" :key="$index" class="dynamic">
+                  <a @click.prevent="removeEditorIndex('with', $index)">X</a>
+                  <input v-model="editor.with[$index]" type="text" placeholder="Name">
+                </div>
+                <a @click.prevent="addEditorIndex('with', '')">Add person</a>
+              </td>
+            </tr>
+            <tr>
+              <th>Locations</th>
+              <td>
+                <div v-for="(value, $index) in editor.locations" :key="$index" class="dynamic">
+                  <a @click.prevent="removeEditorIndex('locations', $index)">X</a>
+                  <input v-model="editor.locations[$index].name" type="text" placeholder="Name">
+                  <input v-model="editor.locations[$index].address" type="text" placeholder="Address">
+                  <input v-model="editor.locations[$index].link" type="text" placeholder="Link">
+                </div>
+                <a @click.prevent="addEditorIndex('locations', {name:'',address:'',link:''})">Add location</a>
+              </td>
+            </tr>
+            <tr>
+              <th>Links</th>
+              <td>
+                <div v-for="(value, $index) in editor.links" :key="$index" class="dynamic">
+                  <a @click.prevent="removeEditorIndex('links', $index)">X</a>
+                  <input v-model="editor.links[$index]" type="text" placeholder="Link">
+                </div>
+                <a @click.prevent="addEditorIndex('links', '')">Add link</a>
+              </td>
+            </tr>
+            <tr>
+              <th>Description</th>
+              <td>
+                <div v-for="(value, $index) in editor.description" :key="$index" class="dynamic">
+                  <a @click.prevent="removeEditorIndex('description', $index)">X</a>
+                  <textarea v-model="editor.description[$index]" type="text" placeholder="Paragraph content"></textarea>
+                </div>
+                <a @click.prevent="addEditorIndex('description', '')">Add paragraph</a>
+              </td>
+            </tr>
+            <tr>
+              <th>Medias</th>
+              <td>
+                <div v-for="(value, $index) in editor.medias" :key="$index" class="dynamic">
+                  <a @click.prevent="removeEditorIndex('medias', $index)">X</a>
+                  <input v-model="editor.medias[$index].link" type="text" placeholder="Link">
+                  <input v-model="editor.medias[$index].note" type="text" placeholder="Note">
+                  <input v-model="editor.medias[$index].preview" type="text" placeholder="Image preview">
+                </div>
+                <a @click.prevent="addEditorIndex('medias', {link:'',note:'',preview:''})">Add media</a>
+              </td>
+            </tr>
+            <tr>
+              <th>Output</th>
+              <td>
+                <a @click.prevent="buildEditorOutput">Build output</a>
+                <pre>{{ editorOutput }}</pre>
+              </td>
+            </tr>
+            <tr>
+              <th>Validation</th>
+              <td>
+                <a @click.prevent="editor = null">Close</a>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div v-else class="tl">
+        <template v-for="(item, $index) in itemsWithOpenStates">
+          <div v-if="item.type === 'year'" :key="$index" :id="`${item.slug}`" class="tl-year">
+            <a :href="`#${item.slug}`" class="tl-icon" @click.prevent="openEditor({ year: item.slug })">
+              <i class="icon icon-time"></i>
+            </a>
+            <div class="tl-content">
+              <h2>{{ item.year }}</h2>
+              {{ item.summary }}
+            </div>
+          </div>
+
+          <a
+            v-else-if="!item.open"
+            :key="$index"
+            :id="`${item.slug}`"
+            :class="[`weight-${item.weight}`, item.todo && 'todo']"
+            class="tl-event closed"
+            @click.prevent="toggleOpen(item.slug)"
+          >
+            <div class="tl-icon">
+              <i v-if="item.weight === 1" class="icon icon-flag"></i>
+              <i v-else-if="item.weight === 2" class="icon icon-bookmark"></i>
+              <i v-else>i</i>
+            </div>
+            <div class="tl-content">
+              {{ item.title }}
+              <small>{{ item.date }}</small>
+            </div>
+          </a>
+
+          <div
+            v-else
+            :key="$index"
+            :id="`${item.slug}`"
+            :class="{ 'todo': item.todo }"
+            class="tl-event opened"
+          >
+            <a :href="`#${item.slug}`" class="tl-icon" @click.prevent="openEditor(item)">
+              <i v-if="item.weight === 1" class="icon icon-flag"></i>
+              <i v-else-if="item.weight === 2" class="icon icon-bookmark"></i>
+              <i v-else>i</i>
+            </a>
+            <div class="tl-content">
+              <h5>
+                {{ item.title }}
+                <button class="btn btn-sm btn-link" @click.prevent="toggleOpen(item.slug)">(réduire)</button>
+              </h5>
+              <blockquote>
+                <span v-if="item.todo" class="label label-error">
+                  <i class="icon icon-stop"></i> {{ item.todo }}
+                </span>
+                <span class="label">
+                  <i class="icon icon-time"></i> {{ item.date }}
+                </span>
+                <template v-if="item.with && item.with.length">
+                  <span v-for="person in item.with" :key="person" class="label">
+                    <i class="icon icon-people"></i> {{ person }}
+                  </span>
+                </template>
+                <br>
+                <template v-if="item.locations && item.locations.length">
+                  <a v-for="location in item.locations" :key="location.link" :href="location.link" :data-tooltip="location.address" class="label tooltip">
+                    <i class="icon icon-location"></i> {{ location.name }}
+                  </a>
+                  <br>
+                </template>
+                <template v-if="item.links && item.links.length">
+                  <a v-for="link in item.links" :key="link" :href="link" class="label">
+                    <i class="icon icon-link"></i> {{ link }}
+                  </a>
+                  <br>
+                </template>
+                <br>
+                <p v-for="paragraph in item.description" :key="`${item.slug}-paragraph-$index`">
+                  {{ paragraph }}
+                </p>
+              </blockquote>
+              <div class="columns">
+                <a
+                  v-for="(media, $index) in item.mediasFull"
+                  :key="'media-' + item.slug + '-' + $index"
+                  :href="media.link"
+                  class="column col-6 col-md-12 col-media"
+                >
+                  <figure class="figure">
+                    <img v-if="media.type === 'image'" :src="media.preview || media.link">
+                    <video v-else-if="media.type === 'video'" :src="media.link" controls preload="metadata"></video>
+                    <template v-else-if="media.preview">
+                      <img :src="media.preview">
+                      <figcaption class="filename">{{ media.filename }}</figcaption>
+                    </template>
+                    <div v-else class="empty">
+                      <div class="empty-icon">
+                        <i class="icon icon-3x icon-upload"></i>
+                      </div>
+                      <div class="empty-title h5">
+                        {{ media.filename }}
+                      </div>
+                    </div>
+                    <figcaption v-if="media.note">
+                      {{ media.note }}
+                    </figcaption>
+                  </figure>
+                </a>
+              </div>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <script src="importer.js" type="text/javascript"></script>
+    <script type="text/javascript">importJS('memories/general.js')</script>
+  </body>
+</html>
